@@ -4,10 +4,6 @@ packer {
             source  = "github.com/hashicorp/proxmox"
             version = ">= 0.1.0"
         }
-        ansible = {
-            source  = "github.com/hashicorp/ansible"
-            version = ">= 0.1.0"
-        }
     }
 }
 
@@ -22,6 +18,10 @@ variable "proxmox_username" {
 variable "proxmox_password" {
     type = string
     sensitive = true
+}
+
+variable "ssh_username" {
+    type = string
 }
 
 source "proxmox-iso" "baseline" {
@@ -41,15 +41,15 @@ source "proxmox-iso" "baseline" {
 
     boot_iso {
       type = "scsi"
-      iso_file = "local-lvm:iso/debian-12.5.0-amd64-netinst.iso"
+      iso_file = "local:iso/ubuntu-24.04.2-live-server-amd64.iso"
       unmount = true
-      iso_checksum = "sha512:33c08e56c83d13007e4a5511b9bf2c4926c4aa12fd5dd56d493c0653aecbab380988c5bf1671dbaea75c582827797d98c4a611f7fb2b131fbde2c677d5258ec9"
+      iso_checksum = "sha512:d6dab0c3a657988501b4bd76f1297c053df710e06e0c3aece60dead24f270b4d"
     }
 
     disks {
         type = "scsi"
         disk_size = "8G"
-        storage_pool = "local-lvm"
+        storage_pool = "VM-pool"
     }
 
     sockets = 1
@@ -66,8 +66,34 @@ source "proxmox-iso" "baseline" {
     }
 
     cloud_init = true
-    cloud_init_storage_pool = "local-lvm"
-    http_directory = "config"
+    cloud_init_storage_pool = "VM-pool"
+    http_directory = "http"
+    http_bind_address = "0.0.0.0"
+    http_port_min = 8802
+    http_port_max = 8802
+
+  boot_command = ["<esc><esc><esc><esc>e<wait>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "<del><del><del><del><del><del><del><del>",
+                  "linux /casper/vmlinuz --- autoinstall ds=\"nocloud-net;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/\"<enter><wait>",
+                  "initrd /casper/initrd<enter><wait>",
+                  "boot<enter>",
+                  "<enter><f10><wait>"
+  ]
+    boot_wait = "5s"
 }
 
 build {
