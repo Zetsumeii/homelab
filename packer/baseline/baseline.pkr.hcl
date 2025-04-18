@@ -35,7 +35,8 @@ source "proxmox-iso" "baseline" {
     ssh_timeout = "20m"
 
     node = "kyoto"
-    template_name = "baseline"
+    vm_id = 5000
+    vm_name = "baseline"
     template_description = "Baseline template for Packer"
 
     boot_iso {
