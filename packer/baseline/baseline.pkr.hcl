@@ -67,32 +67,20 @@ source "proxmox-iso" "baseline" {
 
     cloud_init = true
     cloud_init_storage_pool = "VM-pool"
-    http_directory = "http"
+    http_directory = "config"
     http_bind_address = "0.0.0.0"
     http_port_min = 8802
     http_port_max = 8802
 
-  boot_command = ["<esc><esc><esc><esc>e<wait>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "<del><del><del><del><del><del><del><del>",
-                  "linux /casper/vmlinuz --- autoinstall ds=\"nocloud-net;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/\"<enter><wait>",
-                  "initrd /casper/initrd<enter><wait>",
-                  "boot<enter>",
-                  "<enter><f10><wait>"
-  ]
+    boot_command = [
+        "<esc><wait>",
+        "linux /casper/vmlinuz --- autoinstall ds=\"nocloud-net;seedfrom=http://{{.HTTPIP}}:{{.HTTPPort}}/\"",
+        "<enter><wait>",
+        "initrd /casper/initrd",
+        "<enter><wait>",
+        "boot",
+        "<enter>"
+    ]
     boot_wait = "5s"
 }
 
