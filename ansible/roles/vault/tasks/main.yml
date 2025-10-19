@@ -1,0 +1,72 @@
+---
+- name: Create group vault
+  become: true
+  ansible.builtin.group:
+    name: "vault"
+    state: present
+
+- name: Create user vault
+  become: true
+  ansible.builtin.user:
+    name: "vault"
+    home: "{{ vault_directory }}"
+    create_home: false
+    state: present
+
+- name: Create vault directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ vault_directory }}/{{ item }}"
+    owner: vault
+    group: vault
+    mode: "0755"
+    state: directory
+  loop:
+    - data
+    - bin
+    - config
+
+- name: Verify vault binary
+  become: true
+  ansible.builtin.stat:
+    path: "{{ vault_directory }}/bin/vault"
+  register: vault_exist
+
+- name: Install Vault
+  become: true
+  ansible.builtin.unarchive:
+    src: "https://releases.hashicorp.com/vault/{{ vault_version }}/vault_{{ vault_version }}_linux_amd64.zip"
+    dest: "{{ vault_directory }}/bin"
+    owner: vault
+    group: vault
+    mode: "0755"
+    remote_src: true
+  when: not vault_exist.stat.exists
+
+- name: Install vault service
+  become: true
+  ansible.builtin.template:
+    src: vault.service.j2
+    dest: /etc/systemd/system/vault.service
+    force: true
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload vault
+
+- name: Install vault config
+  become: true
+  ansible.builtin.template:
+    src: vault-server.hcl.j2
+    dest: "{{ vault_directory }}/config/vault-server.hcl"
+    owner: vault
+    group: vault
+  notify: Restart vault
+  register: vault_config
+
+- name: Start vault service
+  become: true
+  ansible.builtin.service:
+    name: vault
+    state: started
+  when: not vault_config.changed

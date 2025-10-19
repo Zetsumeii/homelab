@@ -1,0 +1,5 @@
+vault_version: "1.19.2"
+vault_directory: /opt/vault
+vault_user: vault
+vault_group: vault
+vault_tls_disabled: false

@@ -1,0 +1,9 @@
+---
+- name: Create worker user
+  ansible.builtin.user:
+    name: "{{ worker_username }}"
+    create_home: true
+    shell: /bin/bash
+    password: "{{ worker_password | password_hash('sha512') }}"
+    append: true
+    groups: sudo

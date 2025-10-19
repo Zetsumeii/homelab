@@ -1,0 +1,17 @@
+---
+- name: Setup sudo
+  become: true
+  ansible.builtin.apt:
+    name: sudo
+
+- name: Create sudo-nopasswd group
+  become: true
+  group:
+    name: sudo-nopasswd
+
+- name: Setup sudo-nopasswd
+  become: true
+  lineinfile:
+    dest: /etc/sudoers
+    line: "%sudo-nopasswd ALL=(ALL:ALL) NOPASSWD:ALL"
+    regexp: "^%sudo-nopasswd"

@@ -1,0 +1,14 @@
+---
+- name: Set up firewall
+  become: true
+  community.general.ufw:
+    state: enabled
+    name: OpenSSH
+    rule: allow
+
+- name: Set up fail2ban
+  become: true
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: started
+    enabled: true

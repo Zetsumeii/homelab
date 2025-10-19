@@ -1,0 +1,13 @@
+---
+- name: Install common packages
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
+    name:
+      - vim
+      - nvim
+      - git
+      - tmux
+      - net-tools
+      - curl
+      - tar
