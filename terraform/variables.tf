@@ -1,29 +1,29 @@
 variable "proxmox_endpoint" {
-  type        = string
+  type = string
 }
 
 variable "proxmox_api_token" {
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
 variable "proxmox_insecure" {
-  type        = bool
-  default     = false
+  type    = bool
+  default = false
 }
 
 variable "node_name" {
-  type        = string
+  type = string
 }
 
 variable "template_id" {
-  type        = number
-  default     = 9000
+  type    = number
+  default = 9000
 }
 
 variable "storage_pool" {
-  type        = string
-  default     = "VM-pool"
+  type    = string
+  default = "VM-pool"
 }
 
 variable "network_bridge" {
@@ -32,9 +32,9 @@ variable "network_bridge" {
 }
 
 variable "gateway" {
-  type        = string
+  type = string
 }
 
 variable "ssh_public_key" {
-  type        = string
+  type = string
 }

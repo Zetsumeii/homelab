@@ -1,9 +1,9 @@
 variable "vm_name" {
-  type        = string
+  type = string
 }
 
 variable "vm_id" {
-  type        = number
+  type = number
 }
 
 variable "node_name" {
@@ -12,8 +12,8 @@ variable "node_name" {
 }
 
 variable "template_id" {
-  type        = number
-  default     = 9000
+  type    = number
+  default = 9000
 }
 
 variable "cores" {
@@ -27,13 +27,13 @@ variable "memory" {
 }
 
 variable "disk_size" {
-  type        = number
-  default     = 20
+  type    = number
+  default = 20
 }
 
 variable "storage_pool" {
-  type        = string
-  default     = "VM-pool"
+  type    = string
+  default = "VM-pool"
 }
 
 variable "network_bridge" {
@@ -51,7 +51,7 @@ variable "gateway" {
 }
 
 variable "ssh_public_key" {
-  type        = string
+  type = string
 }
 
 variable "ci_user" {

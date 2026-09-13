@@ -5,4 +5,3 @@ credentials.pkr.hcl
 *.tfstate.backup
 *.tfvars
 !*.tfvars.example
-.terraform.lock.hcl
