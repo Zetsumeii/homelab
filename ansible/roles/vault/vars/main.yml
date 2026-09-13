@@ -1,5 +1,18 @@
+---
 vault_version: "1.19.2"
 vault_directory: /opt/vault
 vault_user: vault
 vault_group: vault
-vault_tls_disabled: false
+vault_log_level: "Info"
+
+# Plaintext loopback listener; Caddy in front of it terminates TLS.
+vault_tls_disabled: true
+vault_listen_address: "127.0.0.1:8200"
+vault_tls_cert_file: ""
+vault_tls_key_file: ""
+
+# Caddy runs on the same host.
+vault_proxy_addrs: "127.0.0.1/32"
+
+# Override with the public URL Caddy serves, e.g. https://vault.lan
+vault_api_addr: "http://127.0.0.1:8200"

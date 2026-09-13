@@ -9,6 +9,14 @@ User={{ vault_user }}
 Group={{ vault_group }}
 ExecStart=/bin/sh -c 'exec {{ vault_directory }}/bin/vault server -config={{ vault_directory }}/config/vault-server.hcl'
 ExecReload=/bin/kill --signal HUP $MAINPID
+# Required so Vault can mlock its memory (disable_mlock = false), which
+# keeps the unseal key and secrets from being paged to disk.
+AmbientCapabilities=CAP_IPC_LOCK
+CapabilityBoundingSet=CAP_IPC_LOCK
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
 KillMode=process
 KillSignal=SIGINT
 Restart=on-failure
