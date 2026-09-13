@@ -1,0 +1,19 @@
+---
+traefik_version: "v3.3"
+traefik_directory: "{{ ansible_facts['user_dir'] }}/traefik"
+traefik_log_level: "INFO"
+
+# ACME / Let's Encrypt via DNS-01. No inbound exposure required, which is
+# what makes it usable for LAN-only hosts.
+traefik_acme_email: "CHANGE_ME@example.com"
+traefik_acme_dns_provider: "cloudflare"
+traefik_acme_dns_env_var: "CF_DNS_API_TOKEN"
+traefik_acme_resolvers:
+  - "1.1.1.1:53"
+  - "8.8.8.8:53"
+
+# Network and hostname settings live in ansible/group_vars/all.yml.
+#
+# traefik_acme_dns_token and prometheus_basicauth_users are deliberately
+# not defined anywhere in the repo. Create them vault-encrypted, e.g.
+#   ansible-vault create ansible/group_vars/secrets.yml

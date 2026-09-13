@@ -5,14 +5,17 @@ vault_user: vault
 vault_group: vault
 vault_log_level: "Info"
 
-# Plaintext loopback listener; Caddy in front of it terminates TLS.
+# Plaintext listener; Traefik in front of it terminates TLS.
+# Bound to the proxy network gateway rather than 127.0.0.1, because the
+# Traefik container cannot reach the host's loopback. This address is
+# reachable from containers on that network and from the host, but not
+# from the LAN.
 vault_tls_disabled: true
-vault_listen_address: "127.0.0.1:8200"
+vault_listen_address: "{{ traefik_network_gateway }}:8200"
 vault_tls_cert_file: ""
 vault_tls_key_file: ""
 
-# Caddy runs on the same host.
-vault_proxy_addrs: "127.0.0.1/32"
+# Traefik connects from within the proxy network.
+vault_proxy_addrs: "{{ traefik_network_subnet }}"
 
-# Override with the public URL Caddy serves, e.g. https://vault.lan
-vault_api_addr: "http://127.0.0.1:8200"
+vault_api_addr: "https://{{ vault_hostname }}"

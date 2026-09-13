@@ -2,6 +2,10 @@
 Description="Vault Instance"
 Requires=network-online.target
 After=network-online.target
+# The listener binds the docker proxy-network gateway, which does not
+# exist until docker has brought the bridge up.
+After=docker.service
+Wants=docker.service
 ConditionPathExists={{ vault_directory }}
 
 [Service]

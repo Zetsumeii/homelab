@@ -1,4 +1,14 @@
 ---
+- name: Fail early if the Prometheus basicauth credentials are not supplied
+  ansible.builtin.assert:
+    that:
+      - prometheus_basicauth_users is defined
+      - prometheus_basicauth_users | length > 0
+    fail_msg: >-
+      prometheus_basicauth_users is not set. Generate an htpasswd line
+      (htpasswd -nB <user>) and store it in a vault-encrypted vars file.
+      Prometheus has no authentication of its own, so Traefik provides it.
+
 - name: Create monitoring directory
   ansible.builtin.file:
     path: "{{ ansible_facts['user_dir'] }}/monitoring"
