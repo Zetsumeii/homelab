@@ -24,6 +24,18 @@ variable "ssh_username" {
     type = string
 }
 
+variable "proxmox_insecure" {
+    type = bool
+    description = "Skip Proxmox API TLS verification. Set true only for a self-signed node cert."
+    default = false
+}
+
+variable "http_bind_address" {
+    type = string
+    description = "Interface the autoinstall HTTP server binds to. Must be reachable by the Proxmox node; prefer the LAN address over 0.0.0.0."
+    default = "0.0.0.0"
+}
+
 variable "ssh_private_key_file" {
     type = string
     description = "Path to the private key matching the pubkey injected by config/user-data."
@@ -33,7 +45,7 @@ source "proxmox-iso" "baseline" {
     proxmox_url = "${var.proxmox_api_url}"
     username = "${var.proxmox_username}"
     password = "${var.proxmox_password}"
-    insecure_skip_tls_verify = true
+    insecure_skip_tls_verify = "${var.proxmox_insecure}"
 
     ssh_username = "${var.ssh_username}"
     ssh_private_key_file = "${var.ssh_private_key_file}"
@@ -73,7 +85,7 @@ source "proxmox-iso" "baseline" {
     cloud_init = true
     cloud_init_storage_pool = "VM-pool"
     http_directory = "config"
-    http_bind_address = "0.0.0.0"
+    http_bind_address = "${var.http_bind_address}"
     http_port_min = 8802
     http_port_max = 8802
 
