@@ -1,10 +1,18 @@
 ---
+- name: Create monitoring directory
+  ansible.builtin.file:
+    path: "{{ ansible_facts['user_dir'] }}/monitoring"
+    state: directory
+    mode: '0755'
+
 - name: Copy compose file
-  template:
-    src: "docker-compose.yml"
-    dest: "{{ ansible_facts['user_dir'] }}/monitoring/"
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ ansible_facts['user_dir'] }}/monitoring/docker-compose.yml"
+    mode: '0644'
 
 - name: Copy config files
   ansible.builtin.copy:
-    src: "../files/infra"
+    src: infra
     dest: "{{ ansible_facts['user_dir'] }}/monitoring/"
+    mode: '0644'
