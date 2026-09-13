@@ -24,6 +24,11 @@ variable "ssh_username" {
     type = string
 }
 
+variable "ssh_private_key_file" {
+    type = string
+    description = "Path to the private key matching the pubkey injected by config/user-data."
+}
+
 source "proxmox-iso" "baseline" {
     proxmox_url = "${var.proxmox_api_url}"
     username = "${var.proxmox_username}"
@@ -31,7 +36,7 @@ source "proxmox-iso" "baseline" {
     insecure_skip_tls_verify = true
 
     ssh_username = "${var.ssh_username}"
-    ssh_password = "${var.proxmox_password}"
+    ssh_private_key_file = "${var.ssh_private_key_file}"
     ssh_timeout = "20m"
 
     node = "kyoto"
@@ -43,7 +48,7 @@ source "proxmox-iso" "baseline" {
       type = "scsi"
       iso_file = "local:iso/ubuntu-24.04.2-live-server-amd64.iso"
       unmount = true
-      iso_checksum = "sha512:d6dab0c3a657988501b4bd76f1297c053df710e06e0c3aece60dead24f270b4d"
+      iso_checksum = "sha256:d6dab0c3a657988501b4bd76f1297c053df710e06e0c3aece60dead24f270b4d"
     }
 
     disks {
