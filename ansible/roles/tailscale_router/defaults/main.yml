@@ -1,0 +1,4 @@
+---
+tailscale_router_routes: []
+
+tailscale_router_exit_node: false

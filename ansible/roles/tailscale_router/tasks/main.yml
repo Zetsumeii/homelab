@@ -1,0 +1,105 @@
+---
+- name: Read the Tailscale state
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_router_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Fail early unless this node is already in the tailnet
+  ansible.builtin.assert:
+    that:
+      - tailscale_router_status.rc == 0
+      - (tailscale_router_status.stdout | from_json).BackendState == 'Running'
+    fail_msg: >-
+      Tailscale is missing or not logged in on this host. This role only
+      manages routing on a node that has already joined the tailnet.
+
+- name: Enable IPv4 forwarding
+  become: true
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_file: "{{ tailscale_router_sysctl_file }}"
+    sysctl_set: true
+    reload: true
+    state: present
+  when: tailscale_router_needs_ipv4 | bool
+
+- name: Enable IPv6 forwarding
+  become: true
+  ansible.posix.sysctl:
+    name: net.ipv6.conf.all.forwarding
+    value: "1"
+    sysctl_file: "{{ tailscale_router_sysctl_file }}"
+    sysctl_set: true
+    reload: true
+    state: present
+  when: tailscale_router_needs_ipv6 | bool
+
+- name: Read the routes currently advertised
+  become: true
+  ansible.builtin.command: tailscale debug prefs
+  register: tailscale_router_prefs
+  changed_when: false
+  check_mode: false
+
+- name: Note the routes currently advertised
+  ansible.builtin.set_fact:
+    tailscale_router_current_routes: >-
+      {{ (tailscale_router_prefs.stdout | from_json).AdvertiseRoutes
+         | default([], true) | unique | sort }}
+
+- name: Advertise the routes
+  become: true
+  ansible.builtin.command:
+    argv:
+      - tailscale
+      - set
+      - "--advertise-routes={{ tailscale_router_routes | join(',') }}"
+      - "--advertise-exit-node={{ tailscale_router_exit_node | bool | lower }}"
+  when: tailscale_router_current_routes != tailscale_router_desired_routes
+
+- name: Report the pending route change (check mode)
+  ansible.builtin.debug:
+    msg: >-
+      Would change advertised routes from {{ tailscale_router_current_routes }}
+      to {{ tailscale_router_desired_routes }}.
+  when:
+    - ansible_check_mode
+    - tailscale_router_current_routes != tailscale_router_desired_routes
+
+- name: Read the routes after the change
+  become: true
+  ansible.builtin.command: tailscale debug prefs
+  register: tailscale_router_prefs_after
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Fail if Tailscale did not take the routes
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((tailscale_router_prefs_after.stdout | from_json).AdvertiseRoutes
+         | default([], true) | unique | sort) == tailscale_router_desired_routes
+    fail_msg: Tailscale is not advertising {{ tailscale_router_desired_routes }}.
+  when: not ansible_check_mode
+
+- name: Read which routes the tailnet has approved
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_router_status_after
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Report route approval
+  ansible.builtin.debug:
+    msg: >-
+      {% set approved = (tailscale_router_status_after.stdout | from_json).Self.PrimaryRoutes | default([], true) %}
+      {% set pending = tailscale_router_routes | difference(approved) %}
+      Advertising {{ tailscale_router_routes | join(', ') or 'no subnet routes' }}{{ ' and an exit node' if tailscale_router_exit_node | bool else '' }}.
+      {% if pending %}NOT YET APPROVED: {{ pending | join(', ') }}. Approve in the admin console under
+      Machines -> {{ (tailscale_router_status_after.stdout | from_json).Self.HostName }} -> Edit route settings.
+      {% else %}All routes approved.{% endif %}
+  when: not ansible_check_mode

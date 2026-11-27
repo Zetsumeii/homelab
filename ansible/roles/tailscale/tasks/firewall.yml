@@ -1,0 +1,13 @@
+---
+- name: Check whether ufw is installed
+  ansible.builtin.stat:
+    path: /usr/sbin/ufw
+  register: tailscale_ufw_bin
+
+- name: Allow inbound traffic arriving over the tailnet
+  become: true
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: tailscale0
+  when: tailscale_ufw_bin.stat.exists

@@ -1,0 +1,4 @@
+---
+tailscale_router_routes:
+  - 192.168.1.0/24
+tailscale_router_exit_node: false

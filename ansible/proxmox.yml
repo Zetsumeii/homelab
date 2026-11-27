@@ -1,0 +1,5 @@
+---
+- name: Proxmox node
+  hosts: proxmox
+  roles:
+    - tailscale_router
