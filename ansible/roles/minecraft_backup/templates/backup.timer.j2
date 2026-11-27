@@ -1,0 +1,9 @@
+[Unit]
+Description=Schedule {{ minecraft_backup_name }} backups
+
+[Timer]
+OnCalendar={{ minecraft_backup_schedule }}
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

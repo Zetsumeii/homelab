@@ -1,5 +1,21 @@
+---
 vault_version: "1.19.2"
 vault_directory: /opt/vault
 vault_user: vault
 vault_group: vault
-vault_tls_disabled: false
+vault_log_level: "Info"
+
+# Plaintext listener; Traefik in front of it terminates TLS.
+# Bound to the proxy network gateway rather than 127.0.0.1, because the
+# Traefik container cannot reach the host's loopback. This address is
+# reachable from containers on that network and from the host, but not
+# from the LAN.
+vault_tls_disabled: true
+vault_listen_address: "{{ traefik_network_gateway }}:8200"
+vault_tls_cert_file: ""
+vault_tls_key_file: ""
+
+# Traefik connects from within the proxy network.
+vault_proxy_addrs: "{{ traefik_network_subnet }}"
+
+vault_api_addr: "https://{{ vault_hostname }}"

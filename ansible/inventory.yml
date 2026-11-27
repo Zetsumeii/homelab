@@ -1,0 +1,49 @@
+smb:
+  hosts:
+    192.168.1.100:
+      ansible_user: root
+
+nextcloud:
+  hosts:
+    192.168.1.60:
+      ansible_user: zetsumei
+
+atm10:
+  hosts:
+    192.168.1.80:
+      ansible_user: zetsumei
+
+monitoring:
+  hosts:
+    192.168.1.81:
+      ansible_user: zetsumei
+
+cloudflared:
+  hosts:
+    192.168.1.83:
+      ansible_user: zetsumei
+
+imotep:
+  hosts:
+    192.168.1.90:
+      ansible_user: zetsumei
+
+reflog:
+  children:
+    reflog_registry:
+      hosts:
+        192.168.1.87:
+          ansible_user: zetsumei
+    reflog_preview:
+      hosts:
+        192.168.1.88:
+          ansible_user: zetsumei
+
+k8s:
+  hosts: {}
+
+proxmox:
+  hosts:
+    100.112.238.87: # kyoto
+      ansible_user: root
+      ansible_python_interpreter: /usr/bin/python3

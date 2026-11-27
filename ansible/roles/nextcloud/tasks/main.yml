@@ -1,0 +1,74 @@
+---
+- name: Fail early if the credentials are not supplied
+  ansible.builtin.assert:
+    that:
+      - item.value is defined
+      - item.value | length > 0
+    fail_msg: >-
+      {{ item.name }} is not set. Define it in a vault-encrypted vars file
+      before running this role; compose refuses to start without it.
+  loop:
+    - { name: nextcloud_db_password, value: "{{ nextcloud_db_password }}" }
+    - { name: nextcloud_redis_password, value: "{{ nextcloud_redis_password }}" }
+    - { name: nextcloud_admin_password, value: "{{ nextcloud_admin_password }}" }
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Fail early if no trusted domain is configured
+  ansible.builtin.assert:
+    that:
+      - nextcloud_trusted_domains | length > 0
+    fail_msg: >-
+      nextcloud_trusted_domains is empty. Nextcloud rejects every request whose
+      Host header is not listed, so the instance would be unreachable.
+
+- name: Create the project directory
+  ansible.builtin.file:
+    path: "{{ nextcloud_project_dir }}"
+    state: directory
+    mode: "0750"
+
+- name: Create the data root
+  become: true
+  ansible.builtin.file:
+    path: "{{ nextcloud_data_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create the bind-mount directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ nextcloud_data_root }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop: "{{ nextcloud_data_dirs }}"
+
+- name: Install the credentials env file
+  ansible.builtin.template:
+    src: nextcloud.env.j2
+    dest: "{{ nextcloud_env_file }}"
+    mode: "0600"
+  no_log: true
+  notify: Restart nextcloud
+
+- name: Install the compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ nextcloud_compose_file }}"
+    mode: "0640"
+  notify: Restart nextcloud
+
+- ansible.builtin.import_tasks: firewall.yml
+  when: nextcloud_manage_firewall and nextcloud_publish_port
+
+- name: Start nextcloud
+  community.docker.docker_compose_v2:
+    project_src: "{{ nextcloud_project_dir }}"
+    state: present
+    wait: true
+  become: true

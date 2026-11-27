@@ -1,0 +1,26 @@
+services:
+  traefik:
+    image: traefik:{{ traefik_version }}
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      # DNS-01 credential, supplied from a vault-encrypted var.
+      {{ traefik_acme_dns_env_var }}: "{{ traefik_acme_dns_token }}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - {{ traefik_network }}
+
+volumes:
+  letsencrypt:
+    driver: local
+
+networks:
+  {{ traefik_network }}:
+    external: true

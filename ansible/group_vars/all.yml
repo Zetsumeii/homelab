@@ -1,0 +1,9 @@
+---
+traefik_network: proxy
+traefik_network_subnet: "172.20.0.0/16"
+traefik_network_gateway: "172.20.0.1"
+
+traefik_domain: "lan.example.com"
+vault_hostname: "vault.{{ traefik_domain }}"
+grafana_hostname: "grafana.{{ traefik_domain }}"
+prometheus_hostname: "prometheus.{{ traefik_domain }}"

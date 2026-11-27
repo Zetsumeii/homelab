@@ -1,0 +1,9 @@
+---
+- name: Allow Nextcloud through ufw
+  become: true
+  community.general.ufw:
+    rule: allow
+    src: "{{ item }}"
+    port: "{{ nextcloud_http_port }}"
+    proto: tcp
+  loop: "{{ nextcloud_firewall_networks }}"

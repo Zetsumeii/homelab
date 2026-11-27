@@ -1,0 +1,149 @@
+---
+- name: Fail early if no auth key is supplied
+  ansible.builtin.assert:
+    that:
+      - tailscale_auth_key is defined
+      - tailscale_auth_key | length > 0
+    fail_msg: >-
+      tailscale_auth_key is not set. Create the vault-encrypted file the
+      playbook loads (ansible-vault create vars/tailscale.yml) holding either
+      an auth key (tskey-auth-...) or the OAuth client secret (tskey-client-...).
+
+- name: Fail early if an OAuth client secret is used without tags
+  ansible.builtin.assert:
+    that:
+      - tailscale_tags | length > 0
+    fail_msg: >-
+      An OAuth client secret can only enrol tagged devices, but tailscale_tags
+      is empty. Set it to tags the OAuth client was granted.
+  when: tailscale_auth_key_is_oauth | bool
+
+- name: Fail early on an unsupported distribution
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution'] in ['Debian', 'Ubuntu']
+    fail_msg: >-
+      This role installs from Tailscale's apt repository and supports Debian
+      and Ubuntu only; this host runs {{ ansible_facts['distribution'] }}.
+
+- name: Check for the TUN device
+  ansible.builtin.stat:
+    path: /dev/net/tun
+  register: tailscale_tun
+
+- name: Fail early without a TUN device
+  ansible.builtin.assert:
+    that:
+      - tailscale_tun.stat.exists
+    fail_msg: >-
+      /dev/net/tun does not exist, so tailscaled cannot create its interface.
+      On a Proxmox LXC container this cannot be fixed from inside. On the node,
+      add to /etc/pve/lxc/<ctid>.conf:
+      "lxc.cgroup2.devices.allow: c 10:200 rwm" and
+      "lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file",
+      then restart the container.
+
+- name: Install the Tailscale apt signing key
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ tailscale_repo_base }}/{{ tailscale_codename }}.noarmor.gpg"
+    dest: "{{ tailscale_keyring }}"
+    owner: root
+    group: root
+    mode: "0644"
+    force: true
+  register: tailscale_apt_key
+
+- name: Install the Tailscale apt source
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ tailscale_repo_base }}/{{ tailscale_codename }}.tailscale-keyring.list"
+    dest: "{{ tailscale_source_list }}"
+    owner: root
+    group: root
+    mode: "0644"
+    force: true
+  register: tailscale_apt_source
+
+# Separate from the install: cache_valid_time could skip it right after the source is added.
+- name: Refresh the apt cache for the new source
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
+  when: tailscale_apt_key is changed or tailscale_apt_source is changed
+
+- name: Install Tailscale
+  become: true
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Start and enable tailscaled
+  become: true
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: started
+    enabled: true
+
+- name: Read the current Tailscale state
+  become: true
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status_before
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Note whether this node is already in the tailnet
+  ansible.builtin.set_fact:
+    tailscale_already_running: >-
+      {{ tailscale_status_before.rc == 0
+         and (tailscale_status_before.stdout | from_json).BackendState == 'Running' }}
+
+- name: Join the tailnet
+  become: true
+  ansible.builtin.command:
+    argv: "{{ tailscale_up_argv }}"
+  register: tailscale_up
+  failed_when: false
+  no_log: true
+  when: not (tailscale_already_running | bool)
+
+- name: Report a failed join without leaking the key
+  ansible.builtin.fail:
+    msg: >-
+      tailscale up failed (rc {{ tailscale_up.rc }}):
+      {{ (tailscale_up.stderr ~ ' ' ~ tailscale_up.stdout)
+         | regex_replace('tskey-[A-Za-z0-9_-]+', 'tskey-<redacted>') | trim }}
+  when:
+    - tailscale_up is not skipped
+    - tailscale_up.rc != 0
+
+- ansible.builtin.import_tasks: firewall.yml
+  when: tailscale_ufw_allow_tailnet | bool
+
+- name: Read the Tailscale state after joining
+  become: true
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status_after
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Fail if the node is not in the tailnet
+  when: not ansible_check_mode
+  ansible.builtin.assert:
+    that:
+      - (tailscale_status_after.stdout | from_json).BackendState == 'Running'
+    fail_msg: >-
+      tailscaled reports {{ (tailscale_status_after.stdout | from_json).BackendState }}
+      instead of Running.
+
+- name: Report the tailnet address
+  when: not ansible_check_mode
+  ansible.builtin.debug:
+    msg: >-
+      {{ (tailscale_status_after.stdout | from_json).Self.DNSName | regex_replace('\.$', '') }}
+      {{ (tailscale_status_after.stdout | from_json).Self.TailscaleIPs | default([]) | join(' ') }}
+      {{ '(already enrolled)' if tailscale_already_running | bool else '(joined now)' }}

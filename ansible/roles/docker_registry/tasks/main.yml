@@ -1,0 +1,165 @@
+---
+- name: Fail early if no users are defined
+  ansible.builtin.assert:
+    that:
+      - registry_users | length > 0
+      - registry_users | rejectattr('name', 'defined') | list | length == 0
+      - registry_users | rejectattr('password', 'defined') | list | length == 0
+    fail_msg: >-
+      registry_users must list at least one { name, password }. Put it in the
+      vault-encrypted file the playbook loads (ansible-vault edit vars/reflog.yml).
+
+- name: Check that docker is installed
+  ansible.builtin.command: docker compose version
+  changed_when: false
+  failed_when: false
+  register: registry_docker
+
+- name: Fail early without docker compose
+  ansible.builtin.assert:
+    that:
+      - registry_docker.rc == 0
+    fail_msg: >-
+      docker compose is not available on this host. Run the docker_debian role
+      first (reflog.yml does).
+
+- name: Read the Tailscale status
+  ansible.builtin.command: tailscale status --json
+  changed_when: false
+  failed_when: false
+  register: registry_ts_status
+
+- name: Fail early if this host is not on the tailnet
+  ansible.builtin.assert:
+    that:
+      - registry_ts_status.rc == 0
+      - (registry_ts_status.stdout | from_json).BackendState == 'Running'
+    fail_msg: >-
+      Tailscale is not installed or not logged in on this host, and the
+      registry is only published through it. VMs created by Terraform join at
+      first boot; for others run tailscale.yml.
+
+- name: Fail early if the tailnet cannot issue HTTPS certificates
+  ansible.builtin.assert:
+    that:
+      - (registry_ts_status.stdout | from_json).CertDomains | default([], true) | length > 0
+    fail_msg: >-
+      HTTPS certificates are disabled for this tailnet, so tailscale serve
+      cannot publish the registry over HTTPS (Docker refuses plain HTTP to a
+      remote registry). Enable them once in the admin console: DNS > HTTPS
+      Certificates > Enable, then rerun. Note that this publishes machine
+      names such as {{ ansible_facts['hostname'] }}.<tailnet>.ts.net in
+      public Certificate Transparency logs.
+
+- name: Set the registry hostname
+  ansible.builtin.set_fact:
+    registry_hostname: "{{ (registry_ts_status.stdout | from_json).Self.DNSName | regex_replace('\\.$', '') }}"
+
+- name: Install passlib for the htpasswd module
+  become: true
+  ansible.builtin.apt:
+    name:
+      - python3-passlib
+      - python3-bcrypt
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create the registry directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ registry_project_dir }}"
+    - "{{ registry_auth_dir }}"
+    - "{{ registry_data_dir }}"
+
+- name: Set registry users
+  become: true
+  community.general.htpasswd:
+    path: "{{ registry_htpasswd_file }}"
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    hash_scheme: bcrypt
+    owner: root
+    group: root
+    mode: "0640"
+  loop: "{{ registry_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+  notify: Restart registry
+
+- name: Read the users currently in htpasswd
+  become: true
+  ansible.builtin.command: "cut -d: -f1 {{ registry_htpasswd_file }}"
+  changed_when: false
+  register: registry_htpasswd_users
+
+- name: Remove users no longer listed
+  become: true
+  community.general.htpasswd:
+    path: "{{ registry_htpasswd_file }}"
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ registry_htpasswd_users.stdout_lines | difference(registry_users | map(attribute='name')) }}"
+  notify: Restart registry
+
+- name: Install the compose file
+  become: true
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ registry_compose_file }}"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart registry
+
+- name: Start the registry
+  become: true
+  community.docker.docker_compose_v2:
+    project_src: "{{ registry_project_dir }}"
+    state: present
+    wait: true
+
+- name: Read the tailscale serve config
+  become: true
+  ansible.builtin.command: tailscale serve status --json
+  changed_when: false
+  register: registry_serve_status
+
+- name: Publish the registry with tailscale serve
+  become: true
+  ansible.builtin.command:
+    argv:
+      - tailscale
+      - serve
+      - --bg
+      - --yes
+      - "--https={{ registry_https_port }}"
+      - "{{ registry_local_url }}"
+  timeout: 60
+  vars:
+    registry_serve_web: "{{ (registry_serve_status.stdout | default('{}', true) | from_json).get('Web', {}) }}"
+    registry_serve_proxy: >-
+      {{ registry_serve_web.get(registry_hostname ~ ':' ~ registry_https_port, {})
+         .get('Handlers', {}).get('/', {}).get('Proxy', '') }}
+  when: registry_serve_proxy != registry_local_url
+  changed_when: true
+
+- name: Check the registry answers over HTTPS
+  ansible.builtin.uri:
+    url: "https://{{ registry_hostname }}/v2/"
+    status_code: 401
+  register: registry_check
+  retries: 6
+  delay: 10
+  until: registry_check.status == 401
+
+- name: Show the registry address
+  ansible.builtin.debug:
+    msg: "Registry ready: docker login {{ registry_hostname }}"

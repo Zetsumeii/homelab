@@ -1,0 +1,26 @@
+---
+- name: Allow SMB through ufw
+  become: true
+  community.general.ufw:
+    rule: allow
+    src: "{{ item }}"
+    port: "445"
+    proto: tcp
+  loop: "{{ samba_firewall_networks }}"
+
+- name: Allow NetBIOS through ufw
+  become: true
+  community.general.ufw:
+    rule: allow
+    src: "{{ item.0 }}"
+    port: "{{ item.1.port }}"
+    proto: "{{ item.1.proto }}"
+  loop: "{{ samba_firewall_networks | product(samba_netbios_ports) | list }}"
+  loop_control:
+    label: "{{ item.0 }} {{ item.1.proto }}/{{ item.1.port }}"
+  when: samba_manage_nmbd
+  vars:
+    samba_netbios_ports:
+      - { port: "137", proto: udp }
+      - { port: "138", proto: udp }
+      - { port: "139", proto: tcp }

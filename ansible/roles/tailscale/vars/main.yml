@@ -1,0 +1,21 @@
+---
+tailscale_distro: "{{ ansible_facts['distribution'] | lower }}"
+tailscale_codename: "{{ ansible_facts['distribution_release'] }}"
+tailscale_repo_base: "https://pkgs.tailscale.com/{{ tailscale_release_track }}/{{ tailscale_distro }}"
+tailscale_keyring: /usr/share/keyrings/tailscale-archive-keyring.gpg
+tailscale_source_list: /etc/apt/sources.list.d/tailscale.list
+
+tailscale_auth_key_is_oauth: "{{ tailscale_auth_key is match('tskey-client-') }}"
+tailscale_effective_auth_key: >-
+  {{ tailscale_auth_key
+     ~ ('?ephemeral=' ~ (tailscale_oauth_ephemeral | string | lower)
+        ~ '&preauthorized=' ~ (tailscale_oauth_preauthorized | string | lower)
+        if (tailscale_auth_key_is_oauth | bool) and '?' not in tailscale_auth_key
+        else '') }}
+
+tailscale_up_argv: >-
+  {{ ['tailscale', 'up',
+      '--auth-key=' ~ tailscale_effective_auth_key,
+      '--timeout=' ~ tailscale_up_timeout]
+     + (['--advertise-tags=' ~ (tailscale_tags | join(','))] if tailscale_tags | length > 0 else [])
+     + tailscale_up_args }}

@@ -1,0 +1,16 @@
+---
+tailscale_router_exit_routes: ["0.0.0.0/0", "::/0"]
+
+tailscale_router_desired_routes: >-
+  {{ (tailscale_router_routes
+      + (tailscale_router_exit_routes if tailscale_router_exit_node | bool else []))
+     | unique | sort }}
+
+tailscale_router_needs_ipv4: >-
+  {{ (tailscale_router_exit_node | bool)
+     or (tailscale_router_routes | select('search', '^[0-9.]+/') | list | length > 0) }}
+tailscale_router_needs_ipv6: >-
+  {{ (tailscale_router_exit_node | bool)
+     or (tailscale_router_routes | select('search', ':') | list | length > 0) }}
+
+tailscale_router_sysctl_file: /etc/sysctl.d/99-tailscale.conf

@@ -1,0 +1,16 @@
+---
+tailscale_auth_key: ""
+
+tailscale_tags:
+  - tag:homelab
+
+tailscale_oauth_ephemeral: false
+tailscale_oauth_preauthorized: true
+
+tailscale_up_args: []
+
+tailscale_up_timeout: 120s
+
+tailscale_release_track: stable
+
+tailscale_ufw_allow_tailnet: false

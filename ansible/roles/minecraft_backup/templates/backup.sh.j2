@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# save-off, save-all flush, wait for "Saved the game", restic backup; the EXIT trap always sends save-on.
+set -Eeuo pipefail
+
+SERVER_DIR={{ minecraft_backup_server_dir | quote }}
+SERVICE={{ minecraft_backup_service | quote }}
+FIFO={{ minecraft_backup_fifo | quote }}
+SAVE_TIMEOUT={{ minecraft_backup_save_timeout | int }}
+TAG={{ minecraft_backup_name | quote }}
+EXCLUDE_FILE={{ minecraft_backup_exclude_file | quote }}
+
+console() {
+  # Writing to a missing FIFO would create a regular file and break the socket unit.
+  if [[ ! -p $FIFO ]]; then
+    echo "console: $FIFO is not a FIFO; is the socket unit running?" >&2
+    return 1
+  fi
+  printf '%s\n' "$1" > "$FIFO"
+}
+
+saving_disabled=false
+restore_saving() {
+  if [[ $saving_disabled == true ]]; then
+    if console "save-on"; then
+      saving_disabled=false
+      echo "Autosave re-enabled."
+    else
+      echo "WARNING: could not re-enable autosave. Run save-on in the server console NOW." >&2
+    fi
+  fi
+}
+trap restore_saving EXIT
+
+wait_for_console() {
+  local pattern=$1 since=$2
+  local deadline=$(( SECONDS + SAVE_TIMEOUT ))
+  while (( SECONDS < deadline )); do
+    if journalctl --unit="$SERVICE" --since="@$since" --output=cat --no-pager | grep -qF -- "$pattern"; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+if systemctl is-active --quiet "$SERVICE"; then
+  mode=online
+  since=$(date +%s)
+  console "save-off"
+  saving_disabled=true
+  console "save-all flush"
+  echo "Waiting up to ${SAVE_TIMEOUT}s for the server to finish saving..."
+  if ! wait_for_console "Saved the game" "$since"; then
+    echo "The server did not confirm the save within ${SAVE_TIMEOUT}s. Not backing up a world that may still be written." >&2
+    exit 1
+  fi
+  echo "World saved, autosave paused."
+else
+  mode=offline
+  echo "$SERVICE is not running; backing up the files as they are."
+fi
+
+restic backup "$SERVER_DIR" \
+  --tag "$TAG" --tag "$mode" \
+  --exclude-file="$EXCLUDE_FILE" \
+  --exclude-caches \
+  --one-file-system \
+  --retry-lock=1h
+
+restore_saving
+
+restic forget \
+  --tag "$TAG" \
+  --keep-hourly {{ minecraft_backup_keep_hourly | int }} \
+  --keep-daily {{ minecraft_backup_keep_daily | int }} \
+  --keep-weekly {{ minecraft_backup_keep_weekly | int }} \
+  --keep-monthly {{ minecraft_backup_keep_monthly | int }} \
+  --retry-lock=1h

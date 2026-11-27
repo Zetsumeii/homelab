@@ -1,0 +1,35 @@
+---
+- name: Install firewall packages
+  become: true
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - fail2ban
+    state: present
+    update_cache: true
+
+- name: Allow OpenSSH through ufw
+  become: true
+  community.general.ufw:
+    rule: allow
+    name: OpenSSH
+
+- name: Enable ufw
+  become: true
+  community.general.ufw:
+    state: enabled
+
+- name: Start and enable fail2ban
+  become: true
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: started
+    enabled: true
+
+- name: Allow cloudlfared to proxy port 3000
+  become: true
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    src: 192.168.1.83
+    port: '8080'

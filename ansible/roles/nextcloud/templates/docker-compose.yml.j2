@@ -1,0 +1,91 @@
+services:
+  db:
+    image: postgres:{{ nextcloud_postgres_version }}
+    container_name: nextcloud-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "{{ nextcloud_db_name }}"
+      POSTGRES_USER: "{{ nextcloud_db_user }}"
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?}
+    volumes:
+      - {{ nextcloud_data_root }}/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ nextcloud_db_user }} -d {{ nextcloud_db_name }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nextcloud
+
+  redis:
+    image: redis:{{ nextcloud_redis_version }}
+    container_name: nextcloud-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${NEXTCLOUD_REDIS_PASSWORD:?}"]
+    environment:
+      REDIS_PASSWORD: ${NEXTCLOUD_REDIS_PASSWORD:?}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nextcloud
+
+  app:
+    image: nextcloud:{{ nextcloud_version }}
+    container_name: nextcloud-app
+    restart: unless-stopped
+{% if nextcloud_publish_port %}
+    ports:
+      - "{{ nextcloud_http_port }}:80"
+{% endif %}
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: "{{ nextcloud_db_name }}"
+      POSTGRES_USER: "{{ nextcloud_db_user }}"
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?}
+      REDIS_HOST: redis
+      REDIS_HOST_PASSWORD: ${NEXTCLOUD_REDIS_PASSWORD:?}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?}
+      NEXTCLOUD_TRUSTED_DOMAINS: "{{ nextcloud_trusted_domains | join(' ') }}"
+      PHP_MEMORY_LIMIT: "{{ nextcloud_php_memory_limit }}"
+      PHP_UPLOAD_LIMIT: "{{ nextcloud_php_upload_limit }}"
+{% if nextcloud_trusted_proxies %}
+      TRUSTED_PROXIES: "{{ nextcloud_trusted_proxies | join(' ') }}"
+{% endif %}
+{% if nextcloud_overwrite_protocol %}
+      OVERWRITEPROTOCOL: "{{ nextcloud_overwrite_protocol }}"
+{% endif %}
+{% if nextcloud_overwrite_cli_url %}
+      OVERWRITECLIURL: "{{ nextcloud_overwrite_cli_url }}"
+{% endif %}
+    volumes:
+      - {{ nextcloud_data_root }}/nextcloud:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nextcloud
+
+  cron:
+    image: nextcloud:{{ nextcloud_version }}
+    container_name: nextcloud-cron
+    restart: unless-stopped
+    entrypoint: /cron.sh
+    volumes:
+      - {{ nextcloud_data_root }}/nextcloud:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nextcloud
+
+networks:
+  nextcloud:
+    driver: bridge

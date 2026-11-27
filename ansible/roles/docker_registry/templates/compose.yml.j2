@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+services:
+  registry:
+    image: registry:{{ registry_version }}
+    container_name: registry
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:{{ registry_local_port }}:5000"
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "{{ registry_realm }}"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_STORAGE_DELETE_ENABLED: "{{ registry_delete_enabled | lower }}"
+      # tailscale serve proxies plain HTTP; upload URLs must still be https.
+      REGISTRY_HTTP_HOST: "https://{{ registry_hostname }}"
+    volumes:
+      - {{ registry_data_dir }}:/var/lib/registry
+      - {{ registry_auth_dir }}:/auth:ro

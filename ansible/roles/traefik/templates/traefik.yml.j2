@@ -1,0 +1,47 @@
+# Static configuration. Changes here require a container restart.
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+api:
+  dashboard: true
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    # Nothing is routed unless it opts in with traefik.enable=true.
+    exposedByDefault: false
+    network: "{{ traefik_network }}"
+  file:
+    # Host services that are not containers (Vault) are routed from here.
+    filename: /etc/traefik/dynamic.yml
+    watch: true
+
+certificatesResolvers:
+  le:
+    acme:
+      email: "{{ traefik_acme_email }}"
+      storage: /letsencrypt/acme.json
+      dnsChallenge:
+        provider: "{{ traefik_acme_dns_provider }}"
+        resolvers:
+{% for r in traefik_acme_resolvers %}
+          - "{{ r }}"
+{% endfor %}
+
+log:
+  level: "{{ traefik_log_level }}"
+
+accessLog: {}

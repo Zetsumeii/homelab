@@ -1,0 +1,17 @@
+#cloud-config
+# Rendered by Terraform from terraform/snippets/. First boot only.
+package_update: true
+
+packages:
+  - qemu-guest-agent
+%{ if tailscale_enabled ~}
+  - curl
+%{ endif ~}
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+%{ if tailscale_enabled ~}
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - systemctl enable --now tailscaled
+  - tailscale up --authkey='${tailscale_auth_key}'${tailscale_up_flags}
+%{ endif ~}

@@ -1,0 +1,30 @@
+---
+minecraft_backup_name: atm10
+minecraft_backup_server_dir: /opt/atm10/server
+minecraft_backup_service: atm10.service
+minecraft_backup_fifo: /run/atm10.stdin
+
+minecraft_backup_save_timeout: 300
+
+minecraft_backup_excludes:
+  - logs
+  - crash-reports
+  - debug
+  - dynamic-data-pack-cache
+  - "*.log"
+
+minecraft_backup_schedule: "*-*-* 00/2:00:00"
+minecraft_backup_prune_schedule: "Sun *-*-* 05:30:00"
+
+minecraft_backup_keep_hourly: 24
+minecraft_backup_keep_daily: 7
+minecraft_backup_keep_weekly: 4
+minecraft_backup_keep_monthly: 6
+
+minecraft_backup_smb_host: 192.168.1.100
+minecraft_backup_smb_share: backups
+minecraft_backup_smb_user: atm10-backup
+minecraft_backup_mountpoint: /mnt/nas-backups
+
+minecraft_backup_smb_password: "{{ backup_smb_password | default('') }}"
+minecraft_backup_restic_password: ""

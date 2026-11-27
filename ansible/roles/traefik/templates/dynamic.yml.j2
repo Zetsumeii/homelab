@@ -1,0 +1,20 @@
+# Dynamic configuration. Watched; no restart needed.
+http:
+  routers:
+    vault:
+      rule: "Host(`{{ vault_hostname }}`)"
+      entryPoints:
+        - websecure
+      service: vault
+      tls:
+        certResolver: le
+
+  services:
+    vault:
+      loadBalancer:
+        servers:
+          # Vault is a host systemd service, not a container, so it is
+          # reached through the proxy network gateway rather than by
+          # docker service discovery.
+          - url: "http://{{ traefik_network_gateway }}:8200"
+        passHostHeader: true

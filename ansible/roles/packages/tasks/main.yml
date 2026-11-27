@@ -5,9 +5,10 @@
     update_cache: true
     name:
       - vim
-      - nvim
+      - neovim
       - git
       - tmux
       - net-tools
       - curl
       - tar
+      - unzip

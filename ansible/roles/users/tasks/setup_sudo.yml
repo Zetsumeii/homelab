@@ -3,15 +3,20 @@
   become: true
   ansible.builtin.apt:
     name: sudo
+    state: present
 
 - name: Create sudo-nopasswd group
   become: true
-  group:
+  ansible.builtin.group:
     name: sudo-nopasswd
+    state: present
 
 - name: Setup sudo-nopasswd
   become: true
-  lineinfile:
-    dest: /etc/sudoers
-    line: "%sudo-nopasswd ALL=(ALL:ALL) NOPASSWD:ALL"
-    regexp: "^%sudo-nopasswd"
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/sudo-nopasswd
+    content: "%sudo-nopasswd ALL=(ALL:ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s

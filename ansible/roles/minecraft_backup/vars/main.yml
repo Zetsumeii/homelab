@@ -1,0 +1,16 @@
+---
+minecraft_backup_config_dir: "/etc/minecraft-backup/{{ minecraft_backup_name }}"
+minecraft_backup_smb_cred_file: "{{ minecraft_backup_config_dir }}/smb.cred"
+minecraft_backup_password_file: "{{ minecraft_backup_config_dir }}/restic.pass"
+minecraft_backup_exclude_file: "{{ minecraft_backup_config_dir }}/excludes"
+minecraft_backup_repository: "{{ minecraft_backup_mountpoint }}/restic/{{ minecraft_backup_name }}"
+minecraft_backup_script: "/usr/local/sbin/{{ minecraft_backup_name }}-backup"
+minecraft_backup_unit: "{{ minecraft_backup_name }}-backup"
+minecraft_backup_prune_unit: "{{ minecraft_backup_name }}-backup-prune"
+minecraft_backup_env_file: "{{ minecraft_backup_config_dir }}/restic.env"
+
+minecraft_backup_restic_env:
+  RESTIC_REPOSITORY: "{{ minecraft_backup_repository }}"
+  RESTIC_PASSWORD_FILE: "{{ minecraft_backup_password_file }}"
+  RESTIC_CACHE_DIR: /var/cache/restic
+  GODEBUG: asyncpreemptoff=1

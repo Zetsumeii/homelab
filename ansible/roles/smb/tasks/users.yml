@@ -1,0 +1,44 @@
+---
+- name: Create the unix accounts backing the samba users
+  become: true
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    group: "{{ samba_group }}"
+    groups: "{{ item.groups | default([]) }}"
+    append: true
+    create_home: false
+    shell: /usr/sbin/nologin
+    state: present
+  loop: "{{ samba_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: List the accounts already in the samba password database
+  become: true
+  ansible.builtin.command: pdbedit --list
+  register: samba_pdbedit
+  changed_when: false
+  check_mode: false
+
+- name: Set samba passwords
+  become: true
+  ansible.builtin.shell:
+    cmd: >-
+      printf '%s\n%s\n' "{{ item.password }}" "{{ item.password }}"
+      | smbpasswd -s -a "{{ item.name }}"
+    executable: /bin/bash
+  when: >-
+    samba_force_password_update
+    or item.name not in samba_pdbedit.stdout_lines | map('regex_replace', ':.*$', '') | list
+  loop: "{{ samba_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Enable the samba accounts
+  become: true
+  ansible.builtin.command: smbpasswd -e "{{ item.name }}"
+  loop: "{{ samba_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: false

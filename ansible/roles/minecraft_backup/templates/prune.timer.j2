@@ -1,0 +1,9 @@
+[Unit]
+Description=Schedule pruning of the {{ minecraft_backup_name }} backup repository
+
+[Timer]
+OnCalendar={{ minecraft_backup_prune_schedule }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

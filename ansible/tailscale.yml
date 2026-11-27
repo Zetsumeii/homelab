@@ -1,0 +1,7 @@
+---
+- name: Tailscale
+  hosts: all:!smb:!proxmox:!k8s
+  vars_files:
+    - vars/tailscale.yml
+  roles:
+    - tailscale

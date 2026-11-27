@@ -2,11 +2,26 @@ storage "file" {
   path = "{{ vault_directory }}/data"
 }
 
+# TLS is terminated by the Caddy reverse proxy in front of Vault, so this
+# listener is plaintext and bound to loopback only. Do not bind it to a
+# routable address without setting vault_tls_disabled to false first.
 listener "tcp" {
-  address = "127.0.0.1:8200"
-  tls_disable = 1
+  address     = "{{ vault_listen_address }}"
+  tls_disable = {{ 1 if vault_tls_disabled else 0 }}
+{% if not vault_tls_disabled %}
+  tls_cert_file = "{{ vault_tls_cert_file }}"
+  tls_key_file  = "{{ vault_tls_key_file }}"
+{% endif %}
+
+  # Trust X-Forwarded-For from the proxy so audit logs record the real
+  # client IP instead of 127.0.0.1.
+  x_forwarded_for_authorized_addrs = "{{ vault_proxy_addrs }}"
 }
 
+# Must match the URL Caddy serves, otherwise Vault hands out redirects
+# pointing at the loopback listener.
+api_addr = "{{ vault_api_addr }}"
+
 ui = true
-disable_mlock = true
-log_level = "Debug"
+disable_mlock = false
+log_level = "{{ vault_log_level }}"

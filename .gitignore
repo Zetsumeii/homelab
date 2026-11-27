@@ -1,2 +1,5 @@
 *.env
 credentials.pkr.hcl
+
+nixos/template/out/
+nixos/template/result
