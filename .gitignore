@@ -1,7 +1,5 @@
 *.env
 credentials.pkr.hcl
-.terraform/
-*.tfstate
-*.tfstate.backup
-*.tfvars
-!*.tfvars.example
+
+nixos/template/out/
+nixos/template/result
