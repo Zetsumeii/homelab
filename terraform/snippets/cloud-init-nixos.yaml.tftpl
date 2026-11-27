@@ -1,0 +1,8 @@
+#cloud-config
+# Rendered by Terraform from terraform/snippets/. First boot only.
+%{ if tailscale_enabled ~}
+runcmd:
+  # Waits for tailscaled to be ready (Type=notify) so `up` does not race it.
+  - systemctl start tailscaled
+  - /run/current-system/sw/bin/tailscale up --authkey='${tailscale_auth_key}'${tailscale_up_flags}
+%{ endif ~}
