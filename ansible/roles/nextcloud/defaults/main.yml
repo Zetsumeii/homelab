@@ -1,0 +1,31 @@
+nextcloud_db_password:    "{{ vault_nextcloud_db_password }}"
+nextcloud_redis_password: "{{ vault_nextcloud_redis_password }}"
+nextcloud_admin_password: "{{ vault_nextcloud_admin_password }}"
+nextcloud_admin_user: admin
+
+nextcloud_version: "30-apache"
+nextcloud_postgres_version: "16-alpine"
+nextcloud_redis_version: "7-alpine"
+
+nextcloud_data_root: /mnt/nextcloud-data
+
+nextcloud_db_name: nextcloud
+nextcloud_db_user: nextcloud
+
+nextcloud_publish_port: true
+nextcloud_http_port: 8080
+
+nextcloud_trusted_domains:
+  - "{{ ansible_facts['default_ipv4']['address'] | default('localhost') }}"
+  - "{{ ansible_facts['hostname'] }}"
+
+nextcloud_trusted_proxies: []
+nextcloud_overwrite_protocol: ""
+nextcloud_overwrite_cli_url: ""
+
+nextcloud_php_memory_limit: 512M
+nextcloud_php_upload_limit: 10G
+
+nextcloud_manage_firewall: true
+nextcloud_firewall_networks:
+  - "192.168.0.0/16"

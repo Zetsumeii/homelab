@@ -1,0 +1,8 @@
+---
+nextcloud_project_dir: "{{ ansible_facts['user_dir'] }}/nextcloud"
+nextcloud_env_file: "{{ nextcloud_project_dir }}/.env"
+nextcloud_compose_file: "{{ nextcloud_project_dir }}/docker-compose.yml"
+
+nextcloud_data_dirs:
+  - db
+  - nextcloud
