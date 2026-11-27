@@ -143,12 +143,3 @@ cd /opt/registry && sudo docker compose stop
 sudo docker compose run --rm registry garbage-collect --delete-untagged /etc/distribution/config.yml
 sudo docker compose start
 ```
-
-### github_runner
-
-Self-hosted GitHub Actions runner as `github-runner.service`. Registering needs
-admin on the repo: pass a one-hour token from the repo's
-*Settings → Actions → Runners → New self-hosted runner* with
-`-e github_runner_registration_token=...`, or vault a PAT in
-`github_runner_pat`. Use it from private repos only: workflow jobs get root on
-the VM through Docker.

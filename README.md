@@ -18,13 +18,15 @@ code.
 | nextcloud | 101 | .60 | Nextcloud |
 | atm10 | 102 | .80 | Minecraft server (All The Mods 10) |
 | monitoring | 103 | .81 | Prometheus / Grafana |
-| momo | 104 | .82 | A friend's website (Next.js) |
-| pwn | 105 | .170 | |
+| momo | 104 | .82 | A friend's VM (website, Next.js) |
+| pwn | 105 | .170 | A friend's VM |
 | imotep | 106 | .90 | |
 | reflog-registry | 107 | .87 | Private Docker registry (Tailscale only) |
 | reflog-preview | 108 | .88 | reflog preview environment |
 | cloudflared | 300 | .83 | Every Cloudflare Tunnel |
 | templates | 9000, 9001 | | Debian 13 and NixOS cloud-init templates |
+
+Friends' VMs are created by Terraform but not configured by Ansible.
 
 LAN `192.168.1.0/24`, gateway `.1`. Static VM addresses must stay outside the
 router's DHCP range.
