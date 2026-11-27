@@ -1,0 +1,6 @@
+---
+- name: Restart registry
+  become: true
+  community.docker.docker_compose_v2:
+    project_src: "{{ registry_project_dir }}"
+    state: restarted

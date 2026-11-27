@@ -1,0 +1,201 @@
+---
+- name: Fail early if no runner URL is set
+  ansible.builtin.assert:
+    that:
+      - github_runner_url is match('^https://github\.com/[^/]+(/[^/]+)?/?$')
+    fail_msg: >-
+      github_runner_url must be https://github.com/OWNER/REPO or
+      https://github.com/ORG (got "{{ github_runner_url }}"). Set it in
+      group_vars/reflog_runner.yml.
+
+- name: Fail early on an unsupported distribution
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution'] in ['Debian', 'Ubuntu']
+      - ansible_facts['architecture'] == 'x86_64'
+    fail_msg: >-
+      This role installs the linux-x64 runner on Debian/Ubuntu; this host is
+      {{ ansible_facts['distribution'] }} on {{ ansible_facts['architecture'] }}.
+
+- name: Check for the docker group
+  ansible.builtin.getent:
+    database: group
+    key: docker
+    fail_key: false
+  when: github_runner_docker | bool
+
+- name: Fail early if docker is not installed
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['getent_group']['docker'] is not none
+    fail_msg: >-
+      github_runner_docker is true but this host has no docker group. Run the
+      docker-debian role first (reflog.yml does), or set github_runner_docker
+      to false.
+  when: github_runner_docker | bool
+
+# Lets Ansible become the unprivileged runner user (config.sh refuses root).
+- name: Install acl
+  become: true
+  ansible.builtin.apt:
+    name: acl
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create the runner user
+  become: true
+  ansible.builtin.user:
+    name: "{{ github_runner_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "/home/{{ github_runner_user }}"
+    create_home: true
+    groups: "{{ ['docker'] if github_runner_docker | bool else [] }}"
+    append: true
+  notify: Restart github runner
+
+- name: Create the runner directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ github_runner_dir }}"
+    state: directory
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_user }}"
+    mode: "0750"
+
+# The runner directory is 0750, so these checks need become.
+- name: Check for an existing install
+  become: true
+  ansible.builtin.stat:
+    path: "{{ github_runner_dir }}/config.sh"
+  register: github_runner_installed
+
+# Install only: the runner updates itself, re-extracting would downgrade it.
+- name: Download and unpack the runner
+  when: not github_runner_installed.stat.exists
+  block:
+    - name: Download the runner
+      become: true
+      ansible.builtin.get_url:
+        url: "{{ github_runner_download_url }}"
+        dest: "/tmp/{{ github_runner_archive }}"
+        checksum: "sha256:{{ github_runner_sha256 }}"
+        mode: "0644"
+
+    - name: Unpack the runner
+      become: true
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ github_runner_archive }}"
+        dest: "{{ github_runner_dir }}"
+        remote_src: true
+        owner: "{{ github_runner_user }}"
+        group: "{{ github_runner_user }}"
+
+    - name: Remove the downloaded archive
+      become: true
+      ansible.builtin.file:
+        path: "/tmp/{{ github_runner_archive }}"
+        state: absent
+
+- name: Install the runner's system dependencies
+  become: true
+  ansible.builtin.command:
+    cmd: ./bin/installdependencies.sh
+    chdir: "{{ github_runner_dir }}"
+    creates: "{{ github_runner_dir }}/.deps-installed"
+  register: github_runner_deps
+
+- name: Mark dependencies as installed
+  become: true
+  ansible.builtin.file:
+    path: "{{ github_runner_dir }}/.deps-installed"
+    state: touch
+    owner: root
+    group: root
+    mode: "0644"
+  when: github_runner_deps is changed
+
+- name: Check whether the runner is registered
+  become: true
+  ansible.builtin.stat:
+    path: "{{ github_runner_registration_file }}"
+  register: github_runner_registered
+
+- name: Register the runner with GitHub
+  when: not github_runner_registered.stat.exists
+  block:
+    - name: Fail early if there is no way to register
+      ansible.builtin.assert:
+        that:
+          - (github_runner_registration_token | length > 0) or (github_runner_pat | length > 0)
+        fail_msg: >-
+          The runner is not registered yet and neither
+          github_runner_registration_token nor github_runner_pat is set. Ask a
+          repo admin for a registration token (Settings > Actions > Runners >
+          New self-hosted runner, valid 1 hour) and pass it with
+          -e github_runner_registration_token=..., or vault a PAT; see
+          defaults/main.yml.
+
+    - name: Mint a registration token
+      when: github_runner_registration_token | length == 0
+      ansible.builtin.uri:
+        url: "{{ github_runner_token_api }}"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ github_runner_pat }}"
+          Accept: application/vnd.github+json
+          X-GitHub-Api-Version: "2022-11-28"
+        status_code: 201
+      register: github_runner_token
+      no_log: true
+
+    - name: Configure the runner
+      become: true
+      become_user: "{{ github_runner_user }}"
+      ansible.builtin.command:
+        argv: >-
+          {{ [
+            './config.sh', '--unattended', '--replace',
+            '--url', github_runner_url,
+            '--token', github_runner_registration_token if github_runner_registration_token | length > 0 else github_runner_token.json.token,
+            '--name', github_runner_name,
+            '--work', '_work',
+          ]
+          + (['--labels', github_runner_labels | join(',')] if github_runner_labels | length > 0 else [])
+          + (['--runnergroup', github_runner_group] if github_runner_is_org | bool else []) }}
+        chdir: "{{ github_runner_dir }}"
+        creates: "{{ github_runner_registration_file }}"
+      no_log: true
+      notify: Restart github runner
+
+  rescue:
+    - name: Explain a failed registration
+      ansible.builtin.fail:
+        msg: >-
+          Registering with {{ github_runner_url }} failed; the error is hidden
+          because it would contain the token. With a registration token: it
+          lasts one hour and only works for this exact repo, so get a fresh
+          one. With a PAT: it lacks the permission listed in defaults/main.yml
+          (only repo admins can register runners), has expired, or the URL is
+          wrong. Test the PAT by hand (201 means it works):
+          curl -i -X POST -H "Authorization: Bearer $PAT"
+          {{ github_runner_token_api }}
+
+- name: Install the systemd unit
+  become: true
+  ansible.builtin.template:
+    src: github-runner.service.j2
+    dest: "/etc/systemd/system/{{ github_runner_service }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart github runner
+
+- name: Enable and start the runner
+  become: true
+  ansible.builtin.systemd_service:
+    name: "{{ github_runner_service }}"
+    enabled: true
+    state: started
+    daemon_reload: true

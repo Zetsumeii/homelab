@@ -1,0 +1,15 @@
+---
+- name: Reflog registry
+  hosts: reflog_registry
+  vars_files:
+    - vars/reflog.yml
+  roles:
+    - docker-debian
+    - docker_registry
+
+- name: Reflog preview
+  hosts: reflog_preview
+  vars_files:
+    - vars/reflog.yml
+  roles:
+    - docker-debian

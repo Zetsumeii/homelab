@@ -1,0 +1,7 @@
+---
+registry_project_dir: /opt/registry
+registry_compose_file: "{{ registry_project_dir }}/compose.yml"
+registry_auth_dir: "{{ registry_project_dir }}/auth"
+registry_htpasswd_file: "{{ registry_auth_dir }}/htpasswd"
+
+registry_local_url: "http://127.0.0.1:{{ registry_local_port }}"

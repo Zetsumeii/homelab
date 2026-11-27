@@ -1,0 +1,13 @@
+---
+registry_users: []
+
+registry_version: "3.1.1"
+
+registry_realm: "{{ ansible_facts['hostname'] }}"
+
+registry_delete_enabled: true
+
+registry_data_dir: /srv/registry
+
+registry_local_port: 5000
+registry_https_port: 443
