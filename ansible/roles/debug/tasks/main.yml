@@ -1,5 +1,0 @@
----
-- name: Debug facts
-  ansible.builtin.debug:
-    msg: "System {{ ansible_facts['user_dir'] }}"
-...
