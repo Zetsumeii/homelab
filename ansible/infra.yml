@@ -1,0 +1,39 @@
+---
+- name: Bootstrap
+  hosts:
+    - reflog
+  vars_files:
+    - vars/users.yml
+  roles:
+    - apt_upgrade
+    - packages
+    - docker-debian
+    - firewall
+    - users
+
+#- name: Smb
+#  hosts:
+#    - smb
+#  vars_files:
+#    - vars/backup.yml
+#  roles:
+#    - smb
+#
+#- name: Nextcloud
+#  hosts:
+#    - nextcloud
+#  roles:
+#    - nextcloud
+
+#- name: Atm10
+#  hosts:
+#    - atm10
+#  roles:
+#    - atm10
+
+#- name: Monitoring
+#  hosts:
+#    - monitoring
+#  roles:
+#    - monitoring
+...

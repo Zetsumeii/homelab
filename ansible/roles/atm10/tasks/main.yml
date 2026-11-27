@@ -1,0 +1,34 @@
+---
+- name: Download java
+  ansible.builtin.apt:
+    name: "openjdk-21-jdk"
+    state: present
+  become: true
+
+- name: Create server folder
+  ansible.builtin.file:
+    path: /opt/atm10/server/
+    state: directory
+  become: true
+
+- name: Install server files
+  ansible.builtin.get_url:
+    url: "https://www.curseforge.com/api/v1/mods/925200/files/8764245/download"
+    dest: /opt/atm10/serverfiles.zip
+    force: no
+  become: true
+
+- name: Extract server files
+  ansible.builtin.unarchive:
+    src: /opt/atm10/serverfiles.zip
+    dest: /opt/atm10/server/
+    remote_src: true
+    keep_newer: true
+  become: true
+
+- name: Copy config file to server
+  ansible.builtin.copy:
+    src: user_jvm_args.txt
+    dest: /opt/atm10/server/user_jvm_args.txt
+    force: yes
+  become: true

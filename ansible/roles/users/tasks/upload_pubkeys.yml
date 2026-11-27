@@ -1,6 +1,4 @@
 ---
-# ansible.posix.authorized_key appends rather than overwriting, so existing
-# keys (including the one this play is connected with) survive.
 - name: Authorize connecting user's key
   become: true
   ansible.posix.authorized_key:

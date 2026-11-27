@@ -1,0 +1,11 @@
+-Xms16G
+-Xmx16G
+-XX:+UseZGC
+-XX:+ZGenerational
+-XX:+AlwaysPreTouch
+-XX:+DisableExplicitGC
+-XX:+PerfDisableSharedMem
+-XX:ReservedCodeCacheSize=512M
+-XX:+UnlockExperimentalVMOptions
+-XX:TrimNativeHeapInterval=5000
+-Djava.net.preferIPv4Stack=true

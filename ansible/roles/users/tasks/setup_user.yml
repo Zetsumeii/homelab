@@ -1,4 +1,14 @@
 ---
+- name: Fail early if no password is supplied
+  ansible.builtin.assert:
+    that:
+      - worker_password is defined
+      - worker_password | length > 0
+    fail_msg: >-
+      worker_password is not set. Create the vault-encrypted file the playbook
+      loads: ansible-vault create vars/users.yml, containing
+      worker_password: "...".
+
 - name: Create worker user
   ansible.builtin.user:
     name: "{{ worker_username }}"
@@ -7,3 +17,4 @@
     password: "{{ worker_password | password_hash('sha512') }}"
     append: true
     groups: sudo
+  become: true

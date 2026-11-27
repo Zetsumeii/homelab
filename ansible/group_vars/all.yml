@@ -1,16 +1,8 @@
 ---
-# Shared across the traefik, vault and monitoring roles. Kept in group_vars
-# rather than any one role's vars/ so there is a single definition; role
-# vars/ would outrank this and silently drift.
-
-# Shared docker network fronted by Traefik. The subnet is pinned so the
-# gateway address is deterministic: Vault binds to it, and Traefik reaches
-# Vault through it.
 traefik_network: proxy
 traefik_network_subnet: "172.20.0.0/16"
 traefik_network_gateway: "172.20.0.1"
 
-# Hostnames Traefik routes. Each must resolve to this host on your LAN.
 traefik_domain: "lan.example.com"
 vault_hostname: "vault.{{ traefik_domain }}"
 grafana_hostname: "grafana.{{ traefik_domain }}"

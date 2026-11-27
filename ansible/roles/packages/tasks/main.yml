@@ -11,3 +11,4 @@
       - net-tools
       - curl
       - tar
+      - unzip
