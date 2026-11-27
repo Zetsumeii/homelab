@@ -4,7 +4,7 @@
   vars_files:
     - vars/reflog.yml
   roles:
-    - docker-debian
+    - docker_debian
     - docker_registry
 
 - name: Reflog preview
@@ -12,4 +12,4 @@
   vars_files:
     - vars/reflog.yml
   roles:
-    - docker-debian
+    - docker_debian

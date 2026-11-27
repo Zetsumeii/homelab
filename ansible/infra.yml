@@ -7,7 +7,7 @@
   roles:
     - apt_upgrade
     - packages
-    - docker-debian
+    - docker_debian
     - firewall
     - users
 
