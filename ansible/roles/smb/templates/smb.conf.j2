@@ -1,0 +1,56 @@
+[global]
+   workgroup = {{ samba_workgroup }}
+   netbios name = {{ samba_netbios_name }}
+   server string = {{ samba_server_string }}
+   server role = standalone server
+   security = user
+   passdb backend = tdbsam
+   map to guest = {{ samba_map_to_guest }}
+   obey pam restrictions = yes
+   unix password sync = no
+   hosts allow = {{ samba_allowed_networks | join(' ') }}
+   server min protocol = {{ samba_min_protocol }}
+   client min protocol = {{ samba_min_protocol }}
+   smb encrypt = {{ samba_encrypt }}
+{% if not samba_manage_nmbd %}
+   disable netbios = yes
+{% endif %}
+   load printers = no
+   printing = bsd
+   printcap name = /dev/null
+   disable spoolss = yes
+
+   logging = file
+   log file = /var/log/samba/log.%m
+   max log size = {{ samba_max_log_size }}
+   log level = {{ samba_log_level }}
+
+{% for share in samba_shares %}
+[{{ share.name }}]
+{% if share.comment is defined %}
+   comment = {{ share.comment }}
+{% endif %}
+   path = {{ share.path | default(samba_share_root ~ '/' ~ share.name) }}
+   browseable = {{ 'yes' if share.browseable | default(true) else 'no' }}
+   read only = {{ 'yes' if share.read_only | default(false) else 'no' }}
+   guest ok = {{ 'yes' if share.guest_ok | default(false) else 'no' }}
+{% set valid_users = share.valid_users | default(['@' ~ samba_group]) %}
+{% if not share.guest_ok | default(false) %}
+   valid users = {{ valid_users | join(' ') }}
+{% endif %}
+{% if not share.read_only | default(false) %}
+   write list = {{ share.write_list | default(valid_users) | join(' ') }}
+{% endif %}
+   force group = {{ share.group | default(samba_group) }}
+   create mask = {{ share.create_mask | default('0660') }}
+   directory mask = {{ share.directory_mask | default('2770') }}
+{% if share.recycle | default(false) %}
+   vfs objects = recycle
+   recycle:repository = .recycle/%U
+   recycle:keeptree = yes
+   recycle:versions = yes
+   recycle:touch = yes
+   recycle:exclude = *.tmp|*.temp|*.o|~$*
+{% endif %}
+
+{% endfor %}

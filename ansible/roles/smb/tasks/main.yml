@@ -1,0 +1,78 @@
+---
+- name: Fail early if a samba user has no password
+  ansible.builtin.assert:
+    that:
+      - item.password is defined
+      - item.password | length > 0
+    fail_msg: >-
+      samba user '{{ item.name }}' has no password. Define it in a
+      vault-encrypted vars file before running this role.
+  loop: "{{ samba_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Fail early if no network is allowed to reach the server
+  ansible.builtin.assert:
+    that:
+      - samba_allowed_networks | length > 0
+    fail_msg: >-
+      samba_allowed_networks is empty. Samba refuses every host that is not
+      listed, so the server would be unreachable.
+
+- name: Install samba packages
+  become: true
+  ansible.builtin.apt:
+    name: "{{ samba_packages }}"
+    state: present
+    update_cache: true
+
+- name: Create the samba group
+  become: true
+  ansible.builtin.group:
+    name: "{{ samba_group }}"
+    state: present
+
+- name: Create the share root
+  become: true
+  ansible.builtin.file:
+    path: "{{ samba_share_root }}"
+    owner: root
+    group: "{{ samba_group }}"
+    mode: "0755"
+    state: directory
+
+- name: Create share directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path | default(samba_share_root ~ '/' ~ item.name) }}"
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default(samba_group) }}"
+    mode: "{{ item.mode | default('2770') }}"
+    state: directory
+  loop: "{{ samba_shares }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- ansible.builtin.import_tasks: users.yml
+
+- name: Install smb.conf
+  become: true
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: "{{ samba_config_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/bin/testparm -s %s
+  notify: Restart samba
+
+- ansible.builtin.import_tasks: firewall.yml
+  when: samba_manage_firewall
+
+- name: Start and enable samba
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: "{{ samba_services }}"

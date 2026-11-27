@@ -1,0 +1,14 @@
+---
+- name: NAS
+  hosts: smb
+  vars_files:
+    - vars/backup.yml
+  roles:
+    - smb
+
+- name: atm10 backups
+  hosts: atm10
+  vars_files:
+    - vars/backup.yml
+  roles:
+    - minecraft_backup

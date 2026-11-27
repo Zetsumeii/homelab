@@ -1,0 +1,150 @@
+---
+- name: Fail early if the secrets are not supplied
+  ansible.builtin.assert:
+    that:
+      - minecraft_backup_smb_password | length > 0
+      - minecraft_backup_restic_password | length > 0
+    fail_msg: >-
+      The NAS password or the restic password is empty. Create the
+      vault-encrypted vars/backup.yml that the playbook loads.
+
+- name: Check the server directory exists
+  become: true
+  ansible.builtin.stat:
+    path: "{{ minecraft_backup_server_dir }}"
+  register: minecraft_backup_server_stat
+
+- name: Fail early if the server directory is missing
+  ansible.builtin.assert:
+    that:
+      - minecraft_backup_server_stat.stat.isdir | default(false)
+    fail_msg: "{{ minecraft_backup_server_dir }} does not exist on this host."
+
+- name: Install restic and the SMB client
+  become: true
+  ansible.builtin.apt:
+    name:
+      - restic
+      - cifs-utils
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create the config directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ minecraft_backup_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Install the NAS credentials
+  become: true
+  ansible.builtin.template:
+    src: smb.cred.j2
+    dest: "{{ minecraft_backup_smb_cred_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Install the restic password
+  become: true
+  ansible.builtin.copy:
+    content: "{{ minecraft_backup_restic_password }}\n"
+    dest: "{{ minecraft_backup_password_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Install the restic environment and the exclude list
+  become: true
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - { src: restic.env.j2, dest: "{{ minecraft_backup_env_file }}" }
+    - { src: excludes.j2, dest: "{{ minecraft_backup_exclude_file }}" }
+
+- name: Mount the backup share
+  become: true
+  ansible.posix.mount:
+    path: "{{ minecraft_backup_mountpoint }}"
+    src: "//{{ minecraft_backup_smb_host }}/{{ minecraft_backup_smb_share }}"
+    fstype: cifs
+    opts: >-
+      credentials={{ minecraft_backup_smb_cred_file }},uid=0,gid=0,file_mode=0600,dir_mode=0700,vers=3.1.1,_netdev,nofail,x-systemd.automount,x-systemd.idle-timeout=10min
+    state: mounted
+  notify: Reload systemd
+
+- name: Check for an existing repository
+  become: true
+  ansible.builtin.stat:
+    path: "{{ minecraft_backup_repository }}/config"
+  register: minecraft_backup_repo_config
+
+- name: Initialise the repository
+  become: true
+  ansible.builtin.command: restic init
+  environment: "{{ minecraft_backup_restic_env }}"
+  when: not minecraft_backup_repo_config.stat.exists
+
+- name: Check the restic password opens the repository
+  become: true
+  ansible.builtin.command: restic cat config
+  environment: "{{ minecraft_backup_restic_env }}"
+  register: minecraft_backup_repo_check
+  changed_when: false
+  failed_when: false
+  when: not ansible_check_mode
+
+- name: Fail if the repository cannot be opened
+  ansible.builtin.assert:
+    that:
+      - minecraft_backup_repo_check.rc == 0
+    fail_msg: >-
+      restic cannot open {{ minecraft_backup_repository }}: {{ minecraft_backup_repo_check.stderr | trim }}.
+      If the repository already existed, the restic password in the vault does not match it.
+  when: not ansible_check_mode
+
+- name: Install the backup script
+  become: true
+  ansible.builtin.template:
+    src: backup.sh.j2
+    dest: "{{ minecraft_backup_script }}"
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install the systemd units
+  become: true
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - { src: backup.service.j2, dest: "{{ minecraft_backup_unit }}.service" }
+    - { src: backup.timer.j2, dest: "{{ minecraft_backup_unit }}.timer" }
+    - { src: prune.service.j2, dest: "{{ minecraft_backup_prune_unit }}.service" }
+    - { src: prune.timer.j2, dest: "{{ minecraft_backup_prune_unit }}.timer" }
+  notify: Reload systemd
+
+- name: Apply unit changes before enabling the timers
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable the timers
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ item }}.timer"
+    enabled: true
+    state: started
+  loop:
+    - "{{ minecraft_backup_unit }}"
+    - "{{ minecraft_backup_prune_unit }}"

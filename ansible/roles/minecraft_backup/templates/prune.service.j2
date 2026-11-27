@@ -1,0 +1,18 @@
+[Unit]
+Description=Prune and check the {{ minecraft_backup_name }} backup repository
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor={{ minecraft_backup_mountpoint }}
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/restic prune --retry-lock=1h
+ExecStart=/usr/bin/restic check --retry-lock=1h
+EnvironmentFile={{ minecraft_backup_env_file }}
+CacheDirectory=restic
+Nice=19
+IOSchedulingClass=idle
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true

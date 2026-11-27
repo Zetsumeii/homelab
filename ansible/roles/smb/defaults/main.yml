@@ -1,0 +1,31 @@
+---
+samba_workgroup: WORKGROUP
+samba_netbios_name: "{{ ansible_facts['hostname'] | upper }}"
+samba_server_string: "%h NAS"
+
+samba_share_root: /srv/nas
+
+samba_group: smbusers
+
+samba_allowed_networks:
+  - "192.168.0.0/16"
+  - "127.0.0.1"
+
+samba_map_to_guest: never
+
+samba_min_protocol: SMB3
+samba_encrypt: desired
+
+samba_manage_nmbd: true
+
+samba_manage_firewall: true
+samba_firewall_networks: "{{ samba_allowed_networks }}"
+
+samba_log_level: 1
+samba_max_log_size: 1000
+
+samba_users: []
+
+samba_force_password_update: false
+
+samba_shares: []

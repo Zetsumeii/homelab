@@ -1,0 +1,20 @@
+[Unit]
+Description=Back up the {{ minecraft_backup_name }} Minecraft server to the NAS
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor={{ minecraft_backup_mountpoint }}
+# Stopped before the server at shutdown, so the EXIT trap can still send save-on.
+After={{ minecraft_backup_service }}
+
+[Service]
+Type=oneshot
+ExecStart={{ minecraft_backup_script }}
+EnvironmentFile={{ minecraft_backup_env_file }}
+CacheDirectory=restic
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
