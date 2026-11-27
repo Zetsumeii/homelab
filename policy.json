@@ -1,0 +1,48 @@
+// Tailnet policy (HuJSON) for zetsumeii.github, pasted into the admin console.
+// The live policy also has tagOwners for tag:server and tag:reflog-staging.
+{
+    "tagOwners": {
+        "tag:homelab": ["autogroup:admin"],
+        "tag:ci":      ["autogroup:admin"],
+    },
+
+    "hosts": {
+        "reflog-registry": "100.65.129.73",
+    },
+
+    "grants": [
+        // Not "src": ["*"]: that would include tag:ci.
+        {
+            "src": ["autogroup:member", "tag:homelab", "tag:server", "tag:reflog-staging"],
+            "dst": ["*"],
+            "ip":  ["*"],
+        },
+        {
+            "src": ["tag:ci"],
+            "dst": ["reflog-registry"],
+            "ip":  ["tcp:443"],
+        },
+        {
+            "src": ["jacqueshumule@github"],
+            "dst": ["*"],
+            "ip":  ["*"],
+        },
+    ],
+
+    "ssh": [
+        {
+            "action": "check",
+            "src":    ["autogroup:member"],
+            "dst":    ["autogroup:self"],
+            "users":  ["autogroup:nonroot", "root"],
+        },
+    ],
+
+    "tests": [
+        {
+            "src":    "tag:ci",
+            "accept": ["reflog-registry:443"],
+            "deny":   ["reflog-registry:22", "100.112.238.87:22", "100.112.238.87:8006"],
+        },
+    ],
+}

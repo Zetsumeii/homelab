@@ -1,0 +1,10 @@
+#!/bin/sh
+# Refuse to commit Ansible secret files that are not vault-encrypted.
+status=0
+for f in $(git diff --cached --name-only --diff-filter=ACM -- 'ansible/vars/*.yml' 'ansible/group_vars/*/secrets.yml'); do
+  if ! git show ":$f" | head -n1 | grep -q '^\$ANSIBLE_VAULT'; then
+    echo "pre-commit: $f is not encrypted (ansible-vault encrypt $f)" >&2
+    status=1
+  fi
+done
+exit $status
